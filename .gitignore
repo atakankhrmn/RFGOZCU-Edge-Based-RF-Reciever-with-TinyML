@@ -1,0 +1,53 @@
+# ===== RF Gözcü — .gitignore =====
+
+# --- Gizli bilgiler ve kişisel ayarlar (ASLA repoya girmemeli) ---
+# İstasyon koordinatları (ev konumu) bu dosyada durur
+config.yaml
+# Sahte koordinatlı örnek dosya repoda kalsın
+!config.example.yaml
+rclone.conf
+serviceAccount*.json
+*credentials*.json
+.env
+*.pem
+*.key
+
+# --- Toplanan veri (Google Drive'da duruyor) ---
+data/
+logs/
+*.csv
+*.csv.gz
+*.bin
+*.iq
+# Küçük örnek veri paylaşmak isterseniz ornek_veri/ klasörüne koyun
+!ornek_veri/*.csv
+
+# --- SD kart yedekleri ve büyük arşivler ---
+*.img
+*.img.zip
+*.img.xz
+*.7z
+
+# --- Üretilen grafikler ---
+*_dalga.png
+output/
+
+# --- Model eğitimi ara dosyaları ---
+# Not: Pi'ye gidecek son model (*.tflite) küçük olduğu için repoda kalabilir.
+*.h5
+*.keras
+checkpoints/
+
+# --- Python ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- Editör ve işletim sistemi ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
