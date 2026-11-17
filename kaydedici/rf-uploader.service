@@ -1,0 +1,10 @@
+[Unit]
+Description=RF Gözcü gece yükleyicisi (Google Drive)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=rfgozcu
+WorkingDirectory=/home/rfgozcu/rfgozcu/kaydedici
+ExecStart=/home/rfgozcu/rfgozcu/venv/bin/python yukle.py

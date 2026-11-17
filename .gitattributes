@@ -1,0 +1,6 @@
+# Pi (Linux) icin satir sonlari her zaman LF kalsin
+* text=auto eol=lf
+*.docx binary
+*.pdf binary
+*.png binary
+*.bin binary

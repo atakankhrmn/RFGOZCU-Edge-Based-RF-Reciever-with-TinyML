@@ -1,0 +1,13 @@
+[Unit]
+Description=RF Gözcü ADS-B veri kaydedici
+After=readsb.service network-online.target
+
+[Service]
+User=rfgozcu
+WorkingDirectory=/home/rfgozcu/rfgozcu/kaydedici
+ExecStart=/home/rfgozcu/rfgozcu/venv/bin/python kaydedici.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

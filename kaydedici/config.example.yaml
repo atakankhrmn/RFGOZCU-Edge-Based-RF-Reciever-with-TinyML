@@ -1,0 +1,28 @@
+# RF Gözcü kaydedici ayarları
+# Bu dosyayı config.yaml adıyla kopyalayıp değerleri doldurun.
+# config.yaml GitHub'a GÖNDERİLMEZ (.gitignore'da).
+
+# Anten konumu veya kazanç değişirse bu sayıyı 1 artırın.
+oturum: 1
+
+# Uçak kimliklerini gizlemek için rastgele bir metin. Bir kez belirleyin, sonra değiştirmeyin.
+hash_tuzu: "buraya-rastgele-bir-metin-yazin"
+
+# Aynı uçak için en az kaç saniyede bir satır yazılacak
+aralik_s: 5
+
+# Satırlar kaç saniyede bir diske toplu yazılacak (SD kartı korumak için)
+yazma_araligi_s: 30
+
+veri_klasoru: "~/rfgozcu/data"
+aircraft_json: "/run/readsb/aircraft.json"
+
+# Yükleme ayarları
+rclone_hedef: "gdrive:rf-gozcu/logs"
+tutma_gun: 7
+
+# İstasyon bilgileri: kaydedici kullanmaz, model eğitiminde lazım olacak.
+istasyon:
+  enlem: 0.0
+  boylam: 0.0
+  anten_yerden_yukseklik_m: 0

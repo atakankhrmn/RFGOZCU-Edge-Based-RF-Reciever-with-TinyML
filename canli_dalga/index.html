@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canlı sinyal · RF Gözcü</title>
+<style>
+:root {
+  --zemin: #F2F5F7; --panel: #FFFFFF; --murekkep: #16222D; --soluk: #5A6875;
+  --izgara: #D9E1E7; --eksen: #AEBBC6; --kenar: #CBD5DD;
+  --i: #1F5FA8; --q: #C46A1A; --genlik: #9E2B3A; --vurgu: #1F5FA8; --vurgu-yazi: #FFFFFF; --hata: #A3242E;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --zemin: #10161C; --panel: #17202A; --murekkep: #E6EDF2; --soluk: #9AA8B4;
+    --izgara: #25313C; --eksen: #3A4855; --kenar: #2C3843;
+    --i: #6FA8E8; --q: #E79A55; --genlik: #E07385; --vurgu: #6FA8E8; --vurgu-yazi: #0E1720; --hata: #F08A8A;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--zemin); color: var(--murekkep);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 32px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+#durum { color: var(--soluk); font-size: 14px; }
+#durum.hata { color: var(--hata); }
+#durum.bagli::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #2E9E5B; margin-right: 6px; vertical-align: 1px; }
+form { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; margin: 16px 0 12px;
+  padding: 14px 16px; background: var(--panel); border: 1px solid var(--kenar); border-radius: 10px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--soluk); }
+input, select, button { font: inherit; color: var(--murekkep); background: var(--zemin);
+  border: 1px solid var(--kenar); border-radius: 6px; padding: 6px 8px; }
+input[type=number] { width: 120px; }
+label.kutu { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 7px; color: var(--murekkep); }
+button { cursor: pointer; padding: 7px 14px; }
+button.ana { background: var(--vurgu); color: var(--vurgu-yazi); border-color: var(--vurgu); }
+:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 2px; }
+.hazir { display: flex; gap: 6px; flex-wrap: wrap; }
+.hazir button { padding: 4px 10px; font-size: 13px; }
+.grafik { background: var(--panel); border: 1px solid var(--kenar); border-radius: 10px;
+  padding: 10px 12px 6px; margin-top: 12px; }
+.grafik-ust { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--soluk); flex-wrap: wrap; }
+.grafik-ust b { color: var(--murekkep); font-weight: 600; }
+.lejant span { margin-left: 12px; }
+.lejant i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 5px; }
+canvas { display: block; width: 100%; height: 260px; }
+#genlikCiz { height: 180px; }
+footer { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; color: var(--soluk); }
+footer b { color: var(--murekkep); font-variant-numeric: tabular-nums; }
+#uyari { color: var(--hata); font-size: 14px; }
+#uyari:empty { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Canlı sinyal</h1>
+    <div id="durum">Bağlanıyor…</div>
+  </header>
+
+  <form id="ayarlar">
+    <label>Merkez frekans (MHz)
+      <input id="merkez" type="number" step="0.001" min="24" max="1766" required>
+    </label>
+    <label>Görünen genişlik
+      <select id="hiz"></select>
+    </label>
+    <label>Kazanç (dB)
+      <select id="kazanc"></select>
+    </label>
+    <label>Gösterilen süre
+      <select id="sure"></select>
+    </label>
+    <label class="kutu"><input id="tetik" type="checkbox"> En güçlü anı göster</label>
+    <button class="ana" type="submit">Uygula</button>
+    <button id="duraklat" type="button">Dondur</button>
+    <div class="hazir" aria-label="Hazır frekanslar">
+      <button type="button" data-f="433.92">433.92 MHz cihazlar</button>
+      <button type="button" data-f="1090">1090 MHz uçaklar</button>
+      <button type="button" data-f="100">FM bandı</button>
+    </div>
+  </form>
+  <div id="uyari" role="status"></div>
+
+  <section class="grafik">
+    <div class="grafik-ust">
+      <span id="aralik">—</span>
+      <span class="lejant"><span><i style="background:var(--i)"></i>I</span><span><i style="background:var(--q)"></i>Q</span></span>
+    </div>
+    <canvas id="iqCiz" aria-label="I ve Q dalga grafiği"></canvas>
+  </section>
+
+  <section class="grafik">
+    <div class="grafik-ust">
+      <span>Genlik |IQ|: sinyal varken yükselir, yokken gürültü seviyesinde kalır</span>
+    </div>
+    <canvas id="genlikCiz" aria-label="Genlik grafiği"></canvas>
+  </section>
+
+  <footer>
+    <span>Tepe genlik: <b id="tepe">—</b></span>
+    <span>Ortalama genlik: <b id="ortalama">—</b></span>
+    <span id="anten">—</span>
+  </footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const SAG = 14;
+let ws, son = null, donuk = false, olcekIQ = 0.05, olcekG = 0.05;
+
+function renk(ad) { return getComputedStyle(document.documentElement).getPropertyValue(ad).trim(); }
+
+function antenOnerisi(f) {
+  const ceyrek = 7500 / f; // cm, kol başına çeyrek dalga
+  if (ceyrek <= 13) return `Anten: kısa çubuklar, her biri ~${Math.max(5, ceyrek).toFixed(1)} cm`;
+  if (ceyrek < 23) return `Anten: uzun çubuklar, her biri ~${(ceyrek * 3).toFixed(0)} cm (3/4 dalga)`;
+  if (ceyrek <= 100) return `Anten: uzun çubuklar, her biri ~${ceyrek.toFixed(0)} cm`;
+  return "Anten: uzun çubuklar sonuna kadar açık (100 cm)";
+}
+
+function seceneklerDoldur(s) {
+  const doldur = (el, liste, bicim) => { el.innerHTML = liste.map(v => `<option value="${v}">${bicim(v)}</option>`).join(""); };
+  doldur($("hiz"), s.hizlar, v => `${v} MHz`);
+  doldur($("kazanc"), s.kazanclar, v => v.toFixed(1));
+  doldur($("sure"), s.sureler, v => `${v} µs`);
+  formuDoldur(s.ayar);
+}
+
+function formuDoldur(a) {
+  $("merkez").value = a.merkez; $("hiz").value = a.hiz; $("kazanc").value = a.kazanc;
+  $("sure").value = a.sure; $("tetik").checked = a.tetik;
+  $("anten").textContent = antenOnerisi(a.merkez);
+}
+
+function baglan() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { $("durum").textContent = "Bağlı"; $("durum").className = "bagli"; };
+  ws.onclose = () => { $("durum").textContent = "Bağlantı koptu, yeniden deneniyor…"; $("durum").className = "hata"; setTimeout(baglan, 2000); };
+  ws.onmessage = e => {
+    const v = JSON.parse(e.data);
+    if (v.uyari) { $("uyari").textContent = v.uyari; return; }
+    if (v.hata) { $("durum").textContent = v.hata; $("durum").className = "hata"; return; }
+    $("durum").textContent = "Bağlı"; $("durum").className = "bagli";
+    if (!donuk) { son = v; ciz(); }
+  };
+}
+
+function hazirla(c) {
+  const dpr = window.devicePixelRatio || 1, r = c.getBoundingClientRect();
+  if (c.width !== Math.round(r.width * dpr)) { c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w: r.width, h: r.height };
+}
+
+function izgara(g, w, h, sol, alt, toplamUs, yEt) {
+  w = w - SAG;
+  g.strokeStyle = renk("--izgara"); g.lineWidth = 1; g.fillStyle = renk("--soluk");
+  g.font = "11px system-ui, sans-serif"; g.textAlign = "center";
+  const cw = w - sol;
+  for (let k = 0; k <= 10; k++) {
+    const x = sol + cw * k / 10;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h - alt); g.stroke();
+    g.textAlign = k === 10 ? "right" : k === 0 ? "left" : "center";
+    const adim = cw < 500 ? 5 : 2;
+    if (k % adim === 0) g.fillText(`${(toplamUs * k / 10).toFixed(toplamUs < 100 ? 1 : 0)} µs`, x, h - 4);
+  }
+  g.textAlign = "right";
+  yEt.forEach(([y, metin]) => { g.beginPath(); g.moveTo(sol, y); g.lineTo(w, y); g.stroke(); g.fillText(metin, sol - 6, y + 4); });
+}
+
+function cizgi(g, veri, sol, cw, yFn, r) {
+  g.strokeStyle = r; g.lineWidth = 1.2; g.beginPath();
+  veri.forEach((v, k) => { const x = sol + cw * k / (veri.length - 1), y = yFn(v); k ? g.lineTo(x, y) : g.moveTo(x, y); });
+  g.stroke();
+}
+
+function ciz() {
+  if (!son) return;
+  const { i, q, ayar } = son, n = i.length, toplamUs = n / ayar.hiz;
+  const gen = i.map((v, k) => Math.hypot(v, q[k]));
+  const maks = Math.max(...gen);
+  olcekIQ = Math.max(0.03, maks * 1.15, olcekIQ * 0.93);
+  olcekG = Math.max(0.03, maks * 1.15, olcekG * 0.93);
+
+  const alt = (ayar.merkez - ayar.hiz / 2).toFixed(3), ust = (ayar.merkez + ayar.hiz / 2).toFixed(3);
+  $("aralik").innerHTML = `<b>${alt}–${ust} MHz</b> · merkez ${ayar.merkez} MHz · ${n} örnek`;
+  $("tepe").textContent = son.tepe.toFixed(3);
+  $("ortalama").textContent = son.ortalama.toFixed(3);
+
+  const sol = 48, altBos = 18;
+  { const { g, w, h } = hazirla($("iqCiz")); g.clearRect(0, 0, w, h);
+    const ch = h - altBos, orta = ch / 2, yFn = v => orta - v / olcekIQ * (ch / 2 - 4);
+    izgara(g, w, h, sol, altBos, toplamUs, [[yFn(olcekIQ), `+${olcekIQ.toFixed(2)}`], [orta, "0"], [yFn(-olcekIQ), `−${olcekIQ.toFixed(2)}`]]);
+    g.strokeStyle = renk("--eksen"); g.beginPath(); g.moveTo(sol, orta); g.lineTo(w - SAG, orta); g.stroke();
+    cizgi(g, i, sol, w - sol - SAG, yFn, renk("--i")); cizgi(g, q, sol, w - sol - SAG, yFn, renk("--q")); }
+  { const { g, w, h } = hazirla($("genlikCiz")); g.clearRect(0, 0, w, h);
+    const ch = h - altBos, yFn = v => ch - v / olcekG * (ch - 6);
+    izgara(g, w, h, sol, altBos, toplamUs, [[yFn(olcekG), olcekG.toFixed(2)], [yFn(olcekG / 2), (olcekG / 2).toFixed(2)], [yFn(0), "0"]]);
+    cizgi(g, gen, sol, w - sol - SAG, yFn, renk("--genlik")); }
+}
+
+$("ayarlar").addEventListener("submit", e => {
+  e.preventDefault(); $("uyari").textContent = "";
+  const a = { merkez: parseFloat($("merkez").value), hiz: parseFloat($("hiz").value), kazanc: parseFloat($("kazanc").value),
+              sure: parseInt($("sure").value), tetik: $("tetik").checked };
+  $("anten").textContent = antenOnerisi(a.merkez);
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(a));
+});
+$("merkez").addEventListener("input", () => { const f = parseFloat($("merkez").value); if (f > 0) $("anten").textContent = antenOnerisi(f); });
+document.querySelectorAll(".hazir button").forEach(b => b.addEventListener("click", () => {
+  $("merkez").value = b.dataset.f; $("ayarlar").requestSubmit();
+}));
+$("duraklat").addEventListener("click", () => { donuk = !donuk; $("duraklat").textContent = donuk ? "Devam et" : "Dondur"; });
+window.addEventListener("resize", ciz);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ciz);
+
+fetch("/secenekler").then(r => r.json()).then(seceneklerDoldur).finally(baglan);
+</script>
+</body>
+</html>
