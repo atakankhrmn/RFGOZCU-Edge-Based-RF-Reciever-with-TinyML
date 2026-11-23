@@ -82,7 +82,7 @@ kazanc_db, oturum, pi_sicaklik_c
 - `oturum`: **0** kampüste yapılan test (otomatik kazanç, bina içi, farklı konum; eğitimde kullanılmaz), **1** balkondaki gerçek veri (kazanç 49.6 dB sabit). Anten ya da kazanç değişirse numara artırılır.
 - Kaydedici özellik hesaplamaz; ham veriyi yazar. Özellikler eğitim aşamasında hesaplanır.
 
-## Model tasarımı (henüz uygulanmadı)
+## Model tasarımı (kod `model/` klasöründe; 23.11.2026'da 21 günlük gerçek veriyle eğitildi, sonuçlar `ILERLEME.md`'de)
 
 - **Özellikler:** log10(mesafe), sin(azimut), cos(azimut), yükseklik açısı, irtifa, uçak kategorisi. Mesafe haversine ile; yükseklik açısı `atan((h_uçak − h_anten − d²/2R) / d)`, R ≈ 6371 km. `h_anten` deniz seviyesine göredir (zemin rakımı + yerden yükseklik, ikisi de `config.yaml`'da).
 - **Veri ayırma:** Güne göre (ör. 10 gün eğitim, 2 doğrulama, 2 test). Rastgele ayırma yapılmaz; aynı uçağın ardışık satırları sızıntıya yol açar.
@@ -92,7 +92,9 @@ kazanc_db, oturum, pi_sicaklik_c
 - **Değerlendirme:** Test günlerinde konumlar 10 / 25 / 50 / 100 km kaydırılır, RSSI aynı kalır; baseline ve model için yakalama oranı ve ROC/AUC. Ek kontrol olarak NIC/NACp değeri düşük uçakların skor dağılımı.
 - **Dağıtım:** int8 quantization ile LiteRT (TensorFlow Lite); Pi'de model boyutu, çıkarım süresi ve float32'ye göre RMSE kaybı ölçülür.
 - **Katman 1 (kurallar):** Ani konum sıçraması, imkânsız hız. Planlandı.
-- Eğitim Google Colab'da yapılır; veri Drive'dan (`rf-gozcu/logs`) okunur.
+- Eğitim Colab'da değil, geliştirme bilgisayarında yapılır (`.venv`, Python 3.13, TensorFlow 2.21, yalnızca CPU). Veri bilgisayarda `logs/` klasöründe durur (gitignore'da). Ya Drive web arayüzünden zip olarak indirilir ya da Pi'deki rclone ile alınır (`model/veri_indir.ps1`; SD karta yazmaz, `/dev/shm` kullanır). Adımlar `model/README.md`'de.
+- İstasyon bilgisi eğitimde `model/istasyon.yaml` dosyasından okunur (gitignore'da). Gerekli alanlar: `enlem`, `boylam`, `zemin_rakimi_m`, `anten_yerden_yukseklik_m`.
+- Eğitim filtreleri: `oturum == 1`, `yerde == 0`, `rssi_dbfs > -49` (−49.5 readsb'nin alt sınırı, gerçek ölçüm değil), `nic >= 7`, mesafe ≤ 450 km. Düşük NIC'li uçaklar yalnızca değerlendirmede kullanılır.
 
 ## Kesin kurallar
 

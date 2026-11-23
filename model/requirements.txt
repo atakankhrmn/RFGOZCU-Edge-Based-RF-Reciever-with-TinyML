@@ -1,0 +1,8 @@
+# Eğitim bilgisayarı (Windows, Python 3.13) için. Pi'de yalnızca numpy, pyyaml
+# ve ai-edge-litert gerekir.
+numpy
+pandas
+pyyaml
+matplotlib
+scikit-learn
+tensorflow==2.21.0

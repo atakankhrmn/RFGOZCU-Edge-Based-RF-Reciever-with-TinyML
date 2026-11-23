@@ -3,6 +3,8 @@
 # --- Gizli bilgiler ve kişisel ayarlar (ASLA repoya girmemeli) ---
 # İstasyon koordinatları (ev konumu) bu dosyada durur
 config.yaml
+# Eğitimde kullanılan istasyon bilgisi (config.yaml'daki istasyon bloğunun kopyası)
+istasyon.yaml
 # Sahte koordinatlı örnek dosya repoda kalsın
 !config.example.yaml
 rclone.conf

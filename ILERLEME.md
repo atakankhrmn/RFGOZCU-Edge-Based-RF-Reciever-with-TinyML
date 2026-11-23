@@ -1,6 +1,6 @@
 # RF Gözcü: İlerleme Günlüğü
 
-Son güncelleme: 15 Kasım 2026. Projenin ne olduğu ve kurallar için `CLAUDE.md`'ye bak; bu dosya şimdiye kadar ne yapıldığını, neden yapıldığını ve sırada ne olduğunu anlatır.
+Son güncelleme: 23 Kasım 2026. Projenin ne olduğu ve kurallar için `CLAUDE.md`'ye bak; bu dosya şimdiye kadar ne yapıldığını, neden yapıldığını ve sırada ne olduğunu anlatır.
 
 ## 1. Güncel durum
 
@@ -8,7 +8,8 @@ Son güncelleme: 15 Kasım 2026. Projenin ne olduğu ve kurallar için `CLAUDE.m
 - readsb kazancı **49.6 dB'de sabit**. Veri toplama **oturum 1** olarak sürüyor.
 - Kaydedici (`rf-logger`) ve gece yükleyicisi (`rf-uploader.timer`, 03:30) kurulu ve test edildi.
 - Google Drive izni 7 günde doluyor; 6 günde bir `rclone config reconnect gdrive:` ile yenileniyor.
-- Model, mod yöneticisi ve birleşik web arayüzü henüz yazılmadı.
+- Model 21 günlük gerçek veriyle eğitildi ve değerlendirildi (23.11.2026). Sonuçlar Hafta 8 bölümünde. Model dosyaları bilgisayarda `output/gercek/` klasöründe; henüz Pi'ye gönderilmedi.
+- Mod yöneticisi, Pi'deki çıkarım servisi ve birleşik web arayüzü henüz yazılmadı.
 
 ### Doldurulması gereken bilgiler
 
@@ -27,10 +28,8 @@ Bunlar sohbette netleşmedi; bilen biri doldursun:
 Öncelik sırasıyla:
 
 1. **Veri toplamayı sağlıklı sürdürmek** (en az 14, tercihen 21 gün). Günlük kontrol: yükleme durumu, satır sayısı, `olaylar.log`, sıcaklık.
-2. **Colab'da veri okuma ve özellik çıkarma.** Drive'dan `.csv.gz` dosyalarını oku, `oturum == 1` ve `yerde == 0` filtrele, mesafe / azimut / yükseklik açısı hesapla, mesafe–RSSI grafiğiyle veriyi doğrula. Kod, oturum 0 test verisiyle şimdiden yazılabilir (o veride kampüs koordinatları kullanılmalı).
-3. **Baseline** (log-mesafe yol kaybı) ve **MLP** eğitimi; güne göre ayrılmış veriyle RMSE karşılaştırması.
-4. **Sahte konum üretimi ve değerlendirme** (10 / 25 / 50 / 100 km kaydırma, ROC/AUC, eşik seçimi).
-5. **int8 LiteRT dönüşümü ve Pi'de çıkarım servisi** (`rf-infer`): `aircraft.json` → özellikler → skor.
+2. **Eğitimi son veriyle tekrarlamak.** Veri toplama sürdükçe yeni günler `logs/` klasörüne eklenip `model/README.md`'deki adımlar yeniden çalıştırılabilir.
+3. **Pi'de ölçüm ve çıkarım servisi** (`rf-infer`): `model_int8.tflite` Pi'ye kopyalanır, Pi'de `ai-edge-litert` ile çıkarım süresi ölçülür. Servis `aircraft.json` → `ozellikler.py` → skor zincirini çalıştırır; 60 sn pencere ve eşik `degerlendirme.json`'dan alınır.
 6. **Kural katmanı** (ani sıçrama, imkânsız hız).
 7. **Mod yöneticisi:** readsb / rtl_433 / canlı sinyal arasında, aktif servisi durdurup diğerini başlatan servis.
 8. **Birleşik web arayüzü:** mod seçici, uçak haritası + güven skoru, 433 MHz cihaz listesi, canlı sinyal, anten ayarı hatırlatıcısı.
@@ -83,6 +82,31 @@ Bunlar sohbette netleşmedi; bilen biri doldursun:
 - 38.6 → 49.6 arası denendi; en çok mesaj ve en düşük gürültü 49.6'da, doyma hiç yok. Kazanç 49.6 dB'de sabitlendi, oturum 1 başlatıldı.
 - PPR3 yazıldı (04.11.2026): bölüm 2.1 bağlantı diyagramı, 2.2 blok diyagramı, Table 2 kaydedici alanları, güncel Gantt.
 
+### Hafta 8 (23–29 Kasım): model eğitim kodu
+- Eğitimin Colab yerine bilgisayarda yapılmasına karar verildi. Gerekçe: veri küçük (milyonlarca satır, RAM'e sığıyor), model küçük (~1000 parametre, CPU'da dakikalar sürüyor) ve `ozellikler.py` hem eğitimde hem Pi'de aynı dosya olarak kullanılabiliyor.
+- `model/` yazıldı: özellikler, okuma/filtreleme, güne göre ayırma, baseline, MLP, 60 sn pencere z-skoru, %1 yanlış alarm eşiği, 10/25/50/100 km kaydırma testi, int8 LiteRT dönüşümü.
+- Sentetik veriyle deneme (14 gün, uydurma istasyon; yalnızca kodu doğrulamak için, raporda kullanılmaz):
+  - Test RMSE: sabit ortalama 5.34 dB, baseline 2.43 dB, MLP 1.94 dB.
+  - Yakalama oranı / AUC, baseline → MLP: 50 km'de 0.08/0.70 → 0.31/0.77; 100 km'de 0.21/0.80 → 0.48/0.85.
+  - int8 model 4.8 KB, float32'ye göre RMSE kaybı 0.014 dB.
+- **Gerçek veriyle ilk eğitim (23.11.2026).** Veri: 2–22 Kasım, 21 gün. Filtrelerden sonra 455.640 satır, 2.715 uçak, 11.294 geçiş. Ayırma: eğitim 2–16 Kasım (15 gün), doğrulama 17–19 Kasım, test 20–22 Kasım.
+  - Test RMSE: sabit ortalama 5.13 dB, baseline 4.07 dB (a = −15.8 dBFS, n = 0.87), **MLP 2.38 dB**.
+  - Baseline'ın yöne göre hatası büyük: doğuda (60–110°) ~5 dB fazla, güneyde (~155°) ~4 dB az tahmin ediyor. MLP'nin hatası bütün yönlerde ±0.5 dB içinde. MLP bina ve arazi etkisini öğrenmiş.
+  - n = 0.87 serbest uzaydaki 2'den çok düşük. Yakındaki uçaklar yüksek açıda kalıyor, dipolün tepe kör noktasına giriyor ve sinyalleri zayıf geliyor. Bu da mesafe eğrisini düzleştiriyor.
+  - Sahte konum testi (60 sn pencere, eşik doğrulamada %1 yanlış alarm; testte gerçekleşen: baseline %1.3, MLP %1.1). Yakalama / AUC:
+
+    | Kaydırma | Baseline | MLP |
+    |---|---|---|
+    | 10 km | 0.05 / 0.54 | 0.31 / 0.77 |
+    | 25 km | 0.10 / 0.58 | 0.48 / 0.85 |
+    | 50 km | 0.15 / 0.62 | 0.62 / 0.91 |
+    | 100 km | 0.24 / 0.78 | 0.80 / 0.96 |
+
+  - int8 LiteRT: 4.792 bayt (float32 tflite 5.840, keras 37.538). RMSE kaybı 0.055 dB. Kategori sütunları normalize edilmeden 0/1 bırakıldı. Normalize edilince kayıp 0.21 dB'ydi.
+  - Düşük NIC kontrolü güvenilir değil: test günlerindeki düşük NIC satırlarının %91'i tek bir B6 (İHA) aracına ait. Alarm oranı eğitimden eğitime %50–93 arasında değişti. Raporda genelleme yapılmamalı.
+  - Veride görülenler: ~3.7 km'de, batı-güneybatıda, ~1.800 ft irtifada 507 uçaklık bir küme var (havalimanı iniş/kalkış yolu; gerçek veri, tutuldu). 202 satır −49.5 dBFS'de (readsb alt sınırı, filtrelendi). 2 Kasım dosyasında elektrik kesintisinden kalma bir NUL satırı vardı (okuyucu artık bunu temizliyor).
+- Pi'ye Ethernet ile bağlanırken ICS servisinin kapalı olduğu görüldü. Pi bu durumda IPv4 almıyor, ama IPv6 yerel adresiyle (`fe80::...%<arayüz>`) erişilebiliyor.
+
 ## 5. Bilinen tuzaklar
 
 - **`usb_claim_interface error -6`:** Alıcıyı başka bir program tutuyor. `sudo systemctl stop readsb; pkill rtl_fm; pkill rtl_sdr` ile serbest bırakılır. Veri toplama sırasında readsb durdurulmaz.
@@ -93,6 +117,8 @@ Bunlar sohbette netleşmedi; bilen biri doldursun:
 - **İzin yenileme:** `rclone config reconnect gdrive:` → "replace token?" `y` → tarayıcı sorusuna `n` → çıkan `rclone authorize ...` satırı bilgisayarda çalıştırılır → kod Pi'ye yapıştırılır → Shared Drive `n`. Yenileme veri toplamayı bölmez; izin dolarsa yalnızca yükleme bekler, veri Pi'de kalır.
 - **`rfgozcu.local` çözülmezse** IP ile bağlanılır (`hostname -I`). Windows İnternet Bağlantı Paylaşımı ile doğrudan Ethernet'te Pi `192.168.137.x` alır.
 - **Windows'ta Python:** `python` Microsoft Store'u açabilir; `py` kullanılır.
+- **Pi Ethernet'te bulunamıyorsa:** Windows'ta "Internet Bağlantısı Paylaşımı" (SharedAccess) servisi durmuş olabilir. Yönetici PowerShell'de `Start-Service SharedAccess` çalıştırılır, kablo çıkarılıp takılır.
+- **TensorFlow 2.21 + Keras 3'te LiteRT dönüşümü** `from_concrete_functions` ile `READ_VARIABLE` hatası veriyor. `donustur.py` önce `model.export(...)` ile SavedModel üretir, dönüşümü oradan yapar.
 - **RTL-SDR en yüksek kazancı 49.6 dB'dir;** geçerli değerler `rtl_test` çıktısındaki listeden seçilir.
 - Yakından geçen uçaklarda doyma olup olmadığı arada bir kontrol edilmeli: `jq '.total.local.strong_signals' /run/readsb/stats.json`.
 
